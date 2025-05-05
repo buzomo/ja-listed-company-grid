@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>上場企業グリッド</title>
+    <style>
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+            gap: 1px;
+            width: 100%;
+            max-width: 100vw;
+        }
+
+        .cell {
+            width: 100%;
+            height: 24px;
+            font-size: 10px;
+            text-align: center;
+            line-height: 24px;
+            cursor: pointer;
+            color: black;
+            background-color: white;
+            position: relative;
+        }
+
+        .prime {
+            background-color: #e0f0ff;
+        }
+
+        .standard {
+            background-color: #e0e0e0;
+        }
+
+        .growth {
+            background-color: #ffe0e0;
+        }
+
+        .clicked {
+            background-color: green !important;
+            color: white !important;
+        }
+
+        .matched {
+            background-color: orange !important;
+            color: black;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: #333;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            white-space: nowrap;
+            z-index: 10;
+            pointer-events: none;
+            visibility: hidden;
+        }
+
+        .controls {
+            margin-bottom: 10px;
+        }
+
+        .controls label {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="controls">
+        <label><input type="checkbox" id="filter-prime" checked> プライム</label>
+        <label><input type="checkbox" id="filter-standard" checked> スタンダード</label>
+        <label><input type="checkbox" id="filter-growth" checked> グロース</label>
+        <input type="text" id="search" placeholder="社名で検索" />
+    </div>
+    <div class="grid" id="grid"></div>
+    <div id="tooltip" class="tooltip"></div>
+
+    <script src="stock_data.js"></script>
+    <script>
+        const grid = document.getElementById("grid");
+        const searchInput = document.getElementById("search");
+        const filterPrime = document.getElementById("filter-prime");
+        const filterStandard = document.getElementById("filter-standard");
+        const filterGrowth = document.getElementById("filter-growth");
+        const tooltip = document.getElementById("tooltip");
+        const clickedKey = "clickedStocks";
+        let clickedStocks = JSON.parse(localStorage.getItem(clickedKey) || "{}");
+
+        function saveState(code, isClicked) {
+            clickedStocks[code] = isClicked;
+            localStorage.setItem(clickedKey, JSON.stringify(clickedStocks));
+        }
+
+        function createCell(item) {
+            const cell = document.createElement("div");
+            cell.classList.add("cell");
+
+            if (item.market.includes("プライム")) cell.classList.add("prime");
+            else if (item.market.includes("スタンダード")) cell.classList.add("standard");
+            else if (item.market.includes("グロース")) cell.classList.add("growth");
+
+            cell.textContent = item.code;
+            cell.setAttribute("data-name", item.name);
+            cell.setAttribute("data-market", item.market);
+
+            if (clickedStocks[item.code]) {
+                cell.classList.add("clicked");
+            }
+
+            cell.addEventListener("click", () => {
+                const isClicked = cell.classList.toggle("clicked");
+                saveState(item.code, isClicked);
+            });
+
+            cell.addEventListener("dblclick", () => {
+                const queries = [
+                    `${item.name} ${item.code} 企業サイト`,
+                    `${item.name} ${item.code} 採用情報 中途`,
+                    `${item.name} ${item.code} みんかぶ 企業情報`,
+                    // `${item.name} ${item.code} 口コミ`,
+                    `${item.name} ${item.code} 公式ブログ`,
+                    `${item.name} ${item.code} 掲示板`,
+                    `${item.name} ${item.code} 優待`,
+                    // `${item.name} ${item.code} 整理銘柄`
+                ];
+                queries.forEach(q => {
+                    const query = encodeURIComponent(q);
+                    window.open(`https://www.google.com/search?q=${query}&btnI`, '_blank');
+                });
+            });
+
+            cell.addEventListener("mousemove", (e) => {
+                tooltip.textContent = item.name;
+                tooltip.style.left = `${e.pageX + 10}px`;
+                tooltip.style.top = `${e.pageY + 10}px`;
+                tooltip.style.visibility = "visible";
+            });
+
+            cell.addEventListener("mouseleave", () => {
+                tooltip.style.visibility = "hidden";
+            });
+
+            return cell;
+        }
+
+        function renderGrid() {
+            grid.innerHTML = "";
+            const query = searchInput.value.trim();
+
+            data.forEach(item => {
+                const market = item.market;
+                if ((market.includes("プライム") && !filterPrime.checked) ||
+                    (market.includes("スタンダード") && !filterStandard.checked) ||
+                    (market.includes("グロース") && !filterGrowth.checked)) {
+                    return;
+                }
+
+                const cell = createCell(item);
+
+                if (query && item.name.includes(query)) {
+                    cell.classList.add("matched");
+                }
+
+                grid.appendChild(cell);
+            });
+        }
+
+        filterPrime.addEventListener("change", renderGrid);
+        filterStandard.addEventListener("change", renderGrid);
+        filterGrowth.addEventListener("change", renderGrid);
+        searchInput.addEventListener("input", renderGrid);
+
+        renderGrid();
+    </script>
+</body>
+
+</html>
